@@ -1,26 +1,95 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, FlatList, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, FlatList, Alert, ActivityIndicator, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as Notifications from 'expo-notifications';
 import API_BASE from '../config';
 
 export default function WorkerDashboardScreen({ route }) {
-  const { phone, workerName } = route.params;
+  const { phone, workerName, workerId: routeWorkerId } = route.params;
   const [workers, setWorkers] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [completedToday, setCompletedToday] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [requestLoading, setRequestLoading] = useState(false);
   const insets = useSafeAreaInsets();
+  const workerIdRef = useRef(routeWorkerId || null);
+
+  const getPrimaryWorkerId = (list) => (list && list.length ? list[0].id : null);
+
+  const registerPushToken = async (workerId) => {
+    try {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      if (finalStatus !== 'granted') return;
+
+      let token = null;
+      if (Platform.OS === 'android') {
+        const deviceToken = await Notifications.getDevicePushTokenAsync();
+        token = typeof deviceToken?.data === 'string' ? deviceToken.data : null;
+      } else {
+        const expoToken = await Notifications.getExpoPushTokenAsync();
+        token = expoToken?.data || null;
+      }
+      if (!token) return;
+
+      await fetch(`${API_BASE}/api/worker/${workerId}/fcm-token`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fcmToken: token }),
+      });
+    } catch (_) {
+      // Non-blocking for dashboard.
+    }
+  };
+
+  const fetchJobRequests = async (workerId) => {
+    if (!workerId) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/job-requests/worker/${workerId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not fetch requests');
+      setPendingRequests(data.pending || []);
+      setCompletedToday(data.completedToday || []);
+    } catch (_) {
+      // Keep UI usable even if request feed fails intermittently.
+    }
+  };
 
   const fetchMyProfile = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/workers?phone=${encodeURIComponent(phone)}`);
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not fetch profile');
       setWorkers(data);
+
+      const workerId = routeWorkerId || getPrimaryWorkerId(data);
+      workerIdRef.current = workerId;
+      if (workerId) {
+        await registerPushToken(workerId);
+        await fetchJobRequests(workerId);
+      }
     } catch (err) {
       Alert.alert('Error', 'Could not fetch profile');
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useFocusEffect(useCallback(() => { fetchMyProfile(); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      fetchMyProfile();
+      const interval = setInterval(() => {
+        const workerId = workerIdRef.current;
+        if (workerId) fetchJobRequests(workerId);
+      }, 15000);
+      return () => clearInterval(interval);
+    }, [phone, routeWorkerId])
+  );
 
   const toggleAvailability = async (workerId) => {
     try {
@@ -29,6 +98,29 @@ export default function WorkerDashboardScreen({ route }) {
       setWorkers(prev => prev.map(w => w.id === workerId ? { ...w, available: data.available } : w));
     } catch (err) {
       Alert.alert('Error', 'Could not update availability');
+    }
+  };
+
+  const respondToRequest = async (requestId, status) => {
+    setRequestLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/job-request/${requestId}/respond`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not update request');
+
+      const workerId = workerIdRef.current;
+      if (workerId) {
+        await fetchJobRequests(workerId);
+        await fetchMyProfile();
+      }
+    } catch (_) {
+      Alert.alert('Error', 'Could not update job request');
+    } finally {
+      setRequestLoading(false);
     }
   };
 
@@ -92,34 +184,56 @@ export default function WorkerDashboardScreen({ route }) {
       {/* Incoming Requests Section */}
       <View style={styles.requestsCard}>
         <Text style={styles.requestsTitle}>📥 Incoming Job Requests</Text>
-        <View style={styles.requestItem}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.requestText}>Ravi Kumar needs a <Text style={{ fontWeight: 'bold' }}>{workers[0]?.category || 'Worker'}</Text></Text>
-            <Text style={styles.requestDistance}>📍 1.2 km away · Just now</Text>
-          </View>
-          <View style={styles.requestActions}>
-            <TouchableOpacity style={styles.acceptBtn} onPress={() => Alert.alert('Accepted ✅', 'You accepted the job request!')}>
-              <Text style={styles.actionText}>✓</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.declineBtn} onPress={() => Alert.alert('Declined', 'Job request declined')}>
-              <Text style={styles.actionText}>✗</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-        <View style={styles.requestItem}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.requestText}>Priya Sharma needs a <Text style={{ fontWeight: 'bold' }}>{workers[0]?.category || 'Worker'}</Text></Text>
-            <Text style={styles.requestDistance}>📍 3.5 km away · 5 min ago</Text>
-          </View>
-          <View style={styles.requestActions}>
-            <TouchableOpacity style={styles.acceptBtn} onPress={() => Alert.alert('Accepted ✅', 'You accepted the job request!')}>
-              <Text style={styles.actionText}>✓</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.declineBtn} onPress={() => Alert.alert('Declined', 'Job request declined')}>
-              <Text style={styles.actionText}>✗</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        {pendingRequests.length === 0 ? (
+          <Text style={styles.emptyRequests}>No pending requests right now.</Text>
+        ) : (
+          pendingRequests.map((request) => (
+            <View style={styles.requestItem} key={request.id}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.requestText}>
+                  User {request.userId} needs <Text style={{ fontWeight: 'bold' }}>{request.category}</Text>
+                </Text>
+                <Text style={styles.requestSubText}>{request.problem}</Text>
+                <Text style={styles.requestDistance}>📍 {request.distanceKm || 'N/A'} km away</Text>
+              </View>
+              <View style={styles.requestActions}>
+                <TouchableOpacity
+                  style={styles.acceptBtn}
+                  disabled={requestLoading}
+                  onPress={() => respondToRequest(request.id, 'accepted')}
+                >
+                  <Text style={styles.actionText}>✓</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.declineBtn}
+                  disabled={requestLoading}
+                  onPress={() => respondToRequest(request.id, 'declined')}
+                >
+                  <Text style={styles.actionText}>✗</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))
+        )}
+      </View>
+
+      <View style={styles.requestsCard}>
+        <Text style={styles.requestsTitle}>✅ Completed Today</Text>
+        {completedToday.length === 0 ? (
+          <Text style={styles.emptyRequests}>No accepted jobs yet.</Text>
+        ) : (
+          completedToday.map((request) => (
+            <View style={styles.requestItem} key={request.id}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.requestText}>
+                  {request.category} request accepted
+                </Text>
+                <Text style={styles.requestSubText}>{request.problem}</Text>
+                <Text style={styles.requestDistance}>📍 {request.distanceKm || 'N/A'} km away</Text>
+              </View>
+            </View>
+          ))
+        )}
       </View>
     </View>
   );
@@ -155,7 +269,9 @@ const styles = StyleSheet.create({
   requestsTitle: { fontSize: 15, fontWeight: 'bold', color: '#2d3748', marginBottom: 12 },
   requestItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#f0f4f8' },
   requestText: { fontSize: 14, color: '#4a5568' },
+  requestSubText: { fontSize: 12, color: '#718096', marginTop: 2 },
   requestDistance: { fontSize: 12, color: '#a0aec0', marginTop: 3 },
+  emptyRequests: { fontSize: 13, color: '#718096' },
   requestActions: { flexDirection: 'row', gap: 8 },
   acceptBtn: { backgroundColor: '#c6f6d5', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   declineBtn: { backgroundColor: '#fed7d7', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },

@@ -1,79 +1,117 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
 const { GoogleGenAI } = require('@google/genai');
+const admin = require('firebase-admin');
+
+const Worker = require('./models/Worker');
+const Review = require('./models/Review');
+const JobRequest = require('./models/JobRequest');
 
 const app = express();
 app.use(cors());
+app.use(helmet());
 app.use(express.json({ limit: '10mb' })); // increased limit for audio data
 
 // Initialize Gemini API
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// In-Memory Database for Hackathon Prototype
-const centerLng = 78.4867;
-const centerLat = 17.3850;
+let pushEnabled = false;
+if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+  try {
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      }),
+    });
+    pushEnabled = true;
+  } catch (err) {
+    console.error('Firebase admin init failed:', err.message);
+  }
+}
 
-let nextId = 21;
+let dbReady = false;
 
-const mockWorkers = [
-  // Plumbers
-  { id: 1, name: "Ramesh Kumar", category: "Plumber", phone: "+91 9876543210", rating: 4.8, totalRatings: 47, jobsDone: 120, memberSince: "Jan 2024", available: true, lat: centerLat + 0.008, lng: centerLng + 0.006 },
-  { id: 2, name: "Venkat Reddy", category: "Plumber", phone: "+91 9876543220", rating: 4.3, totalRatings: 23, jobsDone: 65, memberSince: "Mar 2024", available: true, lat: centerLat - 0.012, lng: centerLng + 0.009 },
+function formatMemberSince(date) {
+  if (!date) return 'N/A';
+  return new Date(date).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+}
 
-  // Electricians
-  { id: 3, name: "Suresh Babu", category: "Electrician", phone: "+91 9876543211", rating: 4.6, totalRatings: 38, jobsDone: 95, memberSince: "Feb 2024", available: true, lat: centerLat - 0.01, lng: centerLng - 0.015 },
-  { id: 4, name: "Praveen Kumar", category: "Electrician", phone: "+91 9876543221", rating: 4.9, totalRatings: 62, jobsDone: 150, memberSince: "Dec 2023", available: true, lat: centerLat + 0.005, lng: centerLng - 0.008 },
+function toWorkerResponse(workerDoc, categoryOverride) {
+  const coords = workerDoc.location?.coordinates || [];
+  const lng = coords[0];
+  const lat = coords[1];
 
-  // Carpenters
-  { id: 5, name: "Mahesh Yadav", category: "Carpenter", phone: "+91 9876543212", rating: 4.9, totalRatings: 55, jobsDone: 130, memberSince: "Jan 2024", available: true, lat: centerLat - 0.005, lng: centerLng + 0.005 },
-  { id: 6, name: "Raju Sharma", category: "Carpenter", phone: "+91 9876543222", rating: 4.4, totalRatings: 18, jobsDone: 42, memberSince: "May 2024", available: true, lat: centerLat + 0.015, lng: centerLng - 0.01 },
+  return {
+    id: workerDoc._id.toString(),
+    name: workerDoc.name,
+    category: categoryOverride || (workerDoc.skills && workerDoc.skills.length ? workerDoc.skills[0] : 'General'),
+    phone: workerDoc.phone,
+    rating: workerDoc.rating?.average ?? 0,
+    totalRatings: workerDoc.rating?.count ?? 0,
+    jobsDone: workerDoc.jobsDone ?? 0,
+    memberSince: formatMemberSince(workerDoc.createdAt),
+    available: !!workerDoc.availability,
+    lat,
+    lng,
+    isVerified: !!workerDoc.isVerified,
+  };
+}
 
-  // AC Mechanics
-  { id: 7, name: "Rajesh Gupta", category: "AC Mechanic", phone: "+91 9876543213", rating: 4.5, totalRatings: 30, jobsDone: 88, memberSince: "Apr 2024", available: true, lat: centerLat + 0.02, lng: centerLng - 0.02 },
+function normalizeUserLocation(userLocation) {
+  // Phase 2 shape: { latitude, longitude }.
+  // Keep array fallback for compatibility with older app builds.
+  if (
+    userLocation &&
+    typeof userLocation === 'object' &&
+    !Array.isArray(userLocation) &&
+    typeof userLocation.latitude === 'number' &&
+    typeof userLocation.longitude === 'number'
+  ) {
+    return { latitude: userLocation.latitude, longitude: userLocation.longitude };
+  }
 
-  // Painters
-  { id: 8, name: "Anil Verma", category: "Painter", phone: "+91 9876543214", rating: 4.7, totalRatings: 41, jobsDone: 110, memberSince: "Jan 2024", available: true, lat: centerLat + 0.003, lng: centerLng + 0.012 },
-  { id: 9, name: "Srinivas Rao", category: "Painter", phone: "+91 9876543224", rating: 4.2, totalRatings: 15, jobsDone: 35, memberSince: "Jun 2024", available: true, lat: centerLat - 0.008, lng: centerLng - 0.005 },
+  if (
+    Array.isArray(userLocation) &&
+    userLocation.length === 2 &&
+    typeof userLocation[0] === 'number' &&
+    typeof userLocation[1] === 'number'
+  ) {
+    return { longitude: userLocation[0], latitude: userLocation[1] };
+  }
 
-  // Cleaners
-  { id: 10, name: "Lakshmi Devi", category: "Cleaner", phone: "+91 9876543215", rating: 4.8, totalRatings: 50, jobsDone: 200, memberSince: "Nov 2023", available: true, lat: centerLat - 0.003, lng: centerLng - 0.007 },
+  return null;
+}
 
-  // JCB Operators
-  { id: 11, name: "Narasimha Rao", category: "JCB Operator", phone: "+91 9876543216", rating: 4.6, totalRatings: 28, jobsDone: 75, memberSince: "Feb 2024", available: true, lat: centerLat + 0.018, lng: centerLng + 0.015 },
-  { id: 12, name: "Balaji Reddy", category: "JCB Operator", phone: "+91 9876543226", rating: 4.4, totalRatings: 20, jobsDone: 50, memberSince: "Apr 2024", available: true, lat: centerLat - 0.02, lng: centerLng + 0.018 },
+async function getNearbyWorkersByCategory({ category, latitude, longitude, limit = 10, maxDistance = 10000 }) {
+  const query = { availability: true };
+  if (category !== 'General') query.skills = category;
 
-  // Masons
-  { id: 13, name: "Mohan Das", category: "Mason", phone: "+91 9876543217", rating: 4.5, totalRatings: 35, jobsDone: 90, memberSince: "Mar 2024", available: true, lat: centerLat + 0.007, lng: centerLng - 0.012 },
-  { id: 14, name: "Shankar Rao", category: "Mason", phone: "+91 9876543227", rating: 4.7, totalRatings: 42, jobsDone: 105, memberSince: "Jan 2024", available: true, lat: centerLat - 0.015, lng: centerLng + 0.003 },
+  const workers = await Worker.aggregate([
+    {
+      $geoNear: {
+        near: { type: 'Point', coordinates: [longitude, latitude] },
+        distanceField: 'distanceMeters',
+        maxDistance,
+        query,
+        spherical: true,
+      },
+    },
+    { $limit: limit },
+  ]);
 
-  // Welders
-  { id: 15, name: "Prabhakar Singh", category: "Welder", phone: "+91 9876543218", rating: 4.3, totalRatings: 19, jobsDone: 48, memberSince: "May 2024", available: true, lat: centerLat + 0.01, lng: centerLng + 0.018 },
+  return workers.map((w) => ({
+    ...toWorkerResponse(w, category),
+    distanceKm: (w.distanceMeters / 1000).toFixed(1),
+  }));
+}
 
-  // Pest Control
-  { id: 16, name: "Kishan Lal", category: "Pest Control", phone: "+91 9876543219", rating: 4.8, totalRatings: 45, jobsDone: 160, memberSince: "Dec 2023", available: true, lat: centerLat - 0.006, lng: centerLng + 0.014 },
-
-  // Tractor Operators
-  { id: 17, name: "Ranga Reddy", category: "Tractor Operator", phone: "+91 9876543230", rating: 4.5, totalRatings: 22, jobsDone: 60, memberSince: "Mar 2024", available: true, lat: centerLat + 0.012, lng: centerLng + 0.008 },
-
-  // Appliance Repair
-  { id: 18, name: "Satish Kumar", category: "Appliance Repair", phone: "+91 9876543231", rating: 4.6, totalRatings: 33, jobsDone: 85, memberSince: "Feb 2024", available: true, lat: centerLat - 0.004, lng: centerLng - 0.01 },
-
-  // Gardener
-  { id: 19, name: "Yellaiah", category: "Gardener", phone: "+91 9876543232", rating: 4.4, totalRatings: 16, jobsDone: 40, memberSince: "Jun 2024", available: true, lat: centerLat + 0.009, lng: centerLng - 0.004 },
-
-  // Auto Mechanic
-  { id: 20, name: "Farhan Khan", category: "Auto Mechanic", phone: "+91 9876543233", rating: 4.7, totalRatings: 39, jobsDone: 100, memberSince: "Jan 2024", available: true, lat: centerLat - 0.007, lng: centerLng + 0.011 },
-];
-
-// In-memory reviews store
-const reviews = {};
-
-const ALL_CATEGORIES = [...new Set(mockWorkers.map(w => w.category))];
-
-// Haversine formula
 function getDistanceInMeters(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
   const p1 = lat1 * Math.PI / 180;
@@ -84,6 +122,33 @@ function getDistanceInMeters(lat1, lon1, lat2, lon2) {
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
+
+async function sendJobRequestPush(worker, jobRequest) {
+  if (!pushEnabled || !worker?.fcmToken) return;
+
+  try {
+    await admin.messaging().send({
+      token: worker.fcmToken,
+      notification: {
+        title: 'New Job Request',
+        body: `${jobRequest.category} needed nearby - ${jobRequest.problem.slice(0, 50)}`,
+      },
+      data: {
+        jobRequestId: jobRequest._id.toString(),
+        workerId: worker._id.toString(),
+      },
+    });
+  } catch (err) {
+    console.error('Push send failed:', err.message);
+  }
+}
+
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const centerLng = 78.4867;
+const centerLat = 17.3850;
 
 // ========== SMART LOCAL CLASSIFIER (Fallback when Gemini API limit hit) ==========
 const KEYWORD_MAP = {
@@ -161,6 +226,10 @@ const KEYWORD_MAP = {
   },
 };
 
+// Categories used in Gemini prompts come from the fallback keyword map.
+// (Keep this in sync with KEYWORD_MAP keys.)
+const ALL_CATEGORIES = Object.keys(KEYWORD_MAP);
+
 function classifyLocally(description) {
   const desc = description.toLowerCase().trim();
   const scores = {};
@@ -207,7 +276,13 @@ app.post('/api/search', async (req, res) => {
     return res.status(400).json({ error: 'Problem description and user location are required' });
   }
 
-  const [userLng, userLat] = userLocation;
+  if (!dbReady) return res.status(500).json({ error: 'Database not connected' });
+
+  const normalizedLocation = normalizeUserLocation(userLocation);
+  if (!normalizedLocation) {
+    return res.status(400).json({ error: 'userLocation must be { latitude, longitude }' });
+  }
+
   let category = 'General';
   let fallbackUsed = false;
   
@@ -258,26 +333,20 @@ User's problem: "${problemDescription}"`;
     console.log(`Query: "${problemDescription}" → Smart Fallback Category: "${category}"`);
   }
 
-  try {
-    // PROTOTYPE: Skip distance filtering — show all matching workers regardless of location
-    // TODO: Re-enable distance filter for production
-    const nearbyWorkers = mockWorkers
-      .filter(worker => {
-        if (!worker.available) return false;
-        if (worker.category.toLowerCase() !== category.toLowerCase() && category !== 'General') return false;
-        return true;
-      })
-      .map(worker => ({
-        ...worker,
-        distanceKm: (Math.random() * 4 + 0.5).toFixed(1) // Simulated distance for prototype
-      }))
-      .sort((a, b) => parseFloat(a.distanceKm) - parseFloat(b.distanceKm));
+    try {
+      const nearbyWorkers = await getNearbyWorkersByCategory({
+        category,
+        latitude: normalizedLocation.latitude,
+        longitude: normalizedLocation.longitude,
+        maxDistance: 10000,
+        limit: 10,
+      });
 
-    res.json({ categoryIdentified: category, workers: nearbyWorkers, fallbackUsed });
-  } catch (err) {
-    console.error('Filtering error:', err);
-    res.status(500).json({ error: 'Server error', details: err.message });
-  }
+      res.json({ categoryIdentified: category, workers: nearbyWorkers, fallbackUsed });
+    } catch (err) {
+      console.error('Search filtering error:', err.message);
+      res.status(500).json({ error: 'Server error', details: err.message });
+    }
 });
 
 // ========== VOICE SEARCH ROUTE ==========
@@ -288,7 +357,12 @@ app.post('/api/voice-search', async (req, res) => {
       return res.status(400).json({ error: 'Audio data and user location are required' });
     }
 
-    const [userLng, userLat] = userLocation;
+    if (!dbReady) return res.status(500).json({ error: 'Database not connected' });
+
+    const normalizedLocation = normalizeUserLocation(userLocation);
+    if (!normalizedLocation) {
+      return res.status(400).json({ error: 'userLocation must be { latitude, longitude }' });
+    }
 
     // Write audio to temp file
     const tempFile = path.join(__dirname, 'temp_audio.m4a');
@@ -378,20 +452,13 @@ CLASSIFICATION RULES:
     // Clean up temp file
     try { fs.unlinkSync(tempFile); } catch(e) {}
 
-    // Filter workers by category and distance
-    // PROTOTYPE: Skip distance filtering — show all matching workers regardless of location
-    // TODO: Re-enable distance filter for production
-    const nearbyWorkers = mockWorkers
-      .filter(worker => {
-        if (!worker.available) return false;
-        if (category !== 'General' && worker.category.toLowerCase() !== category.toLowerCase()) return false;
-        return true;
-      })
-      .map(worker => ({
-        ...worker,
-        distanceKm: (Math.random() * 4 + 0.5).toFixed(1) // Simulated distance for prototype
-      }))
-      .sort((a, b) => parseFloat(a.distanceKm) - parseFloat(b.distanceKm));
+    const nearbyWorkers = await getNearbyWorkersByCategory({
+      category,
+      latitude: normalizedLocation.latitude,
+      longitude: normalizedLocation.longitude,
+      maxDistance: 10000,
+      limit: 10,
+    });
 
     res.json({
       transcript,
@@ -407,97 +474,322 @@ CLASSIFICATION RULES:
 });
 
 // ========== WORKER REGISTRATION ==========
-app.post('/api/worker/register', (req, res) => {
+app.post('/api/worker/register', async (req, res) => {
   try {
+    if (!dbReady) return res.status(500).json({ error: 'Database not connected' });
+
     const { name, phone, aadhaarLast4, skills, lat, lng } = req.body;
-    if (!name || !phone || !skills || skills.length === 0) {
+    if (!name || !phone || !Array.isArray(skills) || skills.length === 0) {
       return res.status(400).json({ error: 'Name, phone, and at least one skill are required' });
     }
 
-    const newWorkers = skills.map(skill => {
-      const worker = {
-        id: nextId++,
+    const safeSkills = Array.from(new Set(skills.filter(Boolean)));
+    const derivedLng = typeof lng === 'number' ? lng : centerLng + (Math.random() - 0.5) * 0.02;
+    const derivedLat = typeof lat === 'number' ? lat : centerLat + (Math.random() - 0.5) * 0.02;
+
+    let worker = await Worker.findOne({ phone });
+
+    if (worker) {
+      worker.name = name;
+      worker.aadhaarLast4 = aadhaarLast4 || worker.aadhaarLast4;
+      worker.skills = Array.from(new Set([...(worker.skills || []), ...safeSkills]));
+      worker.location = { type: 'Point', coordinates: [derivedLng, derivedLat] };
+      worker.availability = true;
+      await worker.save();
+    } else {
+      worker = await Worker.create({
         name,
-        category: skill,
         phone,
         aadhaarLast4: aadhaarLast4 || '****',
-        rating: 0,
-        totalRatings: 0,
+        skills: safeSkills,
+        location: { type: 'Point', coordinates: [derivedLng, derivedLat] },
+        availability: true,
+        rating: { average: 0, count: 0 },
         jobsDone: 0,
-        memberSince: new Date().toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }),
-        available: true,
-        lat: lat || centerLat + (Math.random() - 0.5) * 0.02,
-        lng: lng || centerLng + (Math.random() - 0.5) * 0.02,
-      };
-      mockWorkers.push(worker);
-      return worker;
-    });
+        isVerified: false,
+      });
+    }
 
-    console.log(`New worker registered: ${name} with skills: ${skills.join(', ')}`);
-    res.json({ message: 'Registration successful!', workers: newWorkers });
-
+    console.log(`Worker registered/updated: ${worker.name} (${phone}) skills=${safeSkills.join(', ')}`);
+    res.status(201).json({ message: 'Registration successful!', worker: toWorkerResponse(worker) });
   } catch (err) {
-    console.error(err);
+    console.error('Worker registration error:', err.message);
     res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
 
 // ========== GET WORKER PROFILE ==========
-app.get('/api/worker/:id', (req, res) => {
-  const worker = mockWorkers.find(w => w.id === parseInt(req.params.id));
-  if (!worker) return res.status(404).json({ error: 'Worker not found' });
+app.get('/api/worker/:id', async (req, res) => {
+  try {
+    if (!dbReady) return res.status(500).json({ error: 'Database not connected' });
 
-  const workerReviews = reviews[worker.id] || [];
-  res.json({ ...worker, reviews: workerReviews });
+    const worker = await Worker.findById(req.params.id).lean();
+    if (!worker) return res.status(404).json({ error: 'Worker not found' });
+
+    const workerReviews = await Review.find({ workerId: worker._id })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      ...toWorkerResponse(worker),
+      reviews: workerReviews.map((r) => ({
+        rating: r.rating,
+        review: r.comment,
+        reviewerName: 'Anonymous User',
+        date: formatMemberSince(r.createdAt),
+      })),
+    });
+  } catch (err) {
+    console.error('Get worker profile error:', err.message);
+    res.status(500).json({ error: 'Server error', details: err.message });
+  }
 });
 
 // ========== TOGGLE AVAILABILITY ==========
-app.put('/api/worker/:id/availability', (req, res) => {
-  const worker = mockWorkers.find(w => w.id === parseInt(req.params.id));
-  if (!worker) return res.status(404).json({ error: 'Worker not found' });
+app.put('/api/worker/:id/availability', async (req, res) => {
+  try {
+    if (!dbReady) return res.status(500).json({ error: 'Database not connected' });
 
-  worker.available = !worker.available;
-  console.log(`${worker.name} is now ${worker.available ? 'Available 🟢' : 'Offline 🔴'}`);
-  res.json({ message: `Now ${worker.available ? 'Available' : 'Offline'}`, available: worker.available });
+    const worker = await Worker.findById(req.params.id);
+    if (!worker) return res.status(404).json({ error: 'Worker not found' });
+
+    worker.availability = !worker.availability;
+    await worker.save();
+
+    console.log(`${worker.name} is now ${worker.availability ? 'Available 🟢' : 'Offline 🔴'}`);
+    res.json({ message: `Now ${worker.availability ? 'Available' : 'Offline'}`, available: worker.availability });
+  } catch (err) {
+    console.error('Toggle availability error:', err.message);
+    res.status(500).json({ error: 'Server error', details: err.message });
+  }
+});
+
+// ========== SAVE WORKER FCM TOKEN ==========
+app.put('/api/worker/:id/fcm-token', async (req, res) => {
+  try {
+    if (!dbReady) return res.status(500).json({ error: 'Database not connected' });
+
+    const { fcmToken } = req.body;
+    if (!fcmToken) return res.status(400).json({ error: 'fcmToken is required' });
+
+    const worker = await Worker.findByIdAndUpdate(
+      req.params.id,
+      { fcmToken },
+      { new: true }
+    );
+    if (!worker) return res.status(404).json({ error: 'Worker not found' });
+
+    res.json({ message: 'FCM token updated' });
+  } catch (err) {
+    console.error('Update FCM token error:', err.message);
+    res.status(500).json({ error: 'Server error', details: err.message });
+  }
+});
+
+// ========== CREATE JOB REQUEST ==========
+app.post('/api/job-request', async (req, res) => {
+  try {
+    if (!dbReady) return res.status(500).json({ error: 'Database not connected' });
+
+    const { workerId, problem, category, userId, userLocation } = req.body;
+    const normalizedLocation = normalizeUserLocation(userLocation);
+    const normalizedProblem = (problem || '').trim();
+    const normalizedUserId = (userId || '').trim();
+
+    if (!workerId || !normalizedProblem || !category || !normalizedUserId || !normalizedLocation) {
+      return res.status(400).json({ error: 'workerId, problem, category, userId, and userLocation are required' });
+    }
+
+    const worker = await Worker.findById(workerId);
+    if (!worker) return res.status(404).json({ error: 'Worker not found' });
+
+    // Prevent duplicate pending requests for same worker + user + problem.
+    const existingPending = await JobRequest.findOne({
+      workerId,
+      userId: normalizedUserId,
+      status: 'pending',
+      problem: { $regex: new RegExp(`^${escapeRegex(normalizedProblem)}$`, 'i') },
+    }).lean();
+
+    if (existingPending) {
+      return res.json({
+        jobRequestId: existingPending._id.toString(),
+        status: existingPending.status,
+        deduped: true,
+      });
+    }
+
+    const jobRequest = await JobRequest.create({
+      userId: normalizedUserId,
+      workerId,
+      problem: normalizedProblem,
+      category,
+      userLocation: {
+        latitude: normalizedLocation.latitude,
+        longitude: normalizedLocation.longitude,
+      },
+      status: 'pending',
+    });
+
+    await sendJobRequestPush(worker, jobRequest);
+
+    res.status(201).json({ jobRequestId: jobRequest._id.toString(), status: jobRequest.status });
+  } catch (err) {
+    console.error('Create job request error:', err.message);
+    res.status(500).json({ error: 'Server error', details: err.message });
+  }
+});
+
+// ========== GET WORKER JOB REQUESTS ==========
+app.get('/api/job-requests/worker/:workerId', async (req, res) => {
+  try {
+    if (!dbReady) return res.status(500).json({ error: 'Database not connected' });
+
+    const worker = await Worker.findById(req.params.workerId).lean();
+    if (!worker) return res.status(404).json({ error: 'Worker not found' });
+
+    const requests = await JobRequest.find({ workerId: worker._id })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const workerLng = worker.location?.coordinates?.[0];
+    const workerLat = worker.location?.coordinates?.[1];
+
+    const mapped = requests.map((r) => {
+      let distanceKm = null;
+      if (typeof workerLat === 'number' && typeof workerLng === 'number') {
+        const d = getDistanceInMeters(workerLat, workerLng, r.userLocation.latitude, r.userLocation.longitude);
+        distanceKm = (d / 1000).toFixed(1);
+      }
+
+      return {
+        id: r._id.toString(),
+        problem: r.problem,
+        category: r.category,
+        userId: r.userId,
+        userLocation: r.userLocation,
+        status: r.status,
+        createdAt: r.createdAt,
+        distanceKm,
+      };
+    });
+
+    const pending = mapped.filter((r) => r.status === 'pending');
+    const completedToday = mapped.filter((r) => r.status === 'accepted');
+
+    res.json({ pending, completedToday });
+  } catch (err) {
+    console.error('Get job requests error:', err.message);
+    res.status(500).json({ error: 'Server error', details: err.message });
+  }
+});
+
+// ========== RESPOND TO JOB REQUEST ==========
+app.put('/api/job-request/:id/respond', async (req, res) => {
+  try {
+    if (!dbReady) return res.status(500).json({ error: 'Database not connected' });
+
+    const { status } = req.body;
+    if (!['accepted', 'declined'].includes(status)) {
+      return res.status(400).json({ error: 'status must be accepted or declined' });
+    }
+
+    const jobRequest = await JobRequest.findById(req.params.id);
+    if (!jobRequest) return res.status(404).json({ error: 'Job request not found' });
+
+    jobRequest.status = status;
+    await jobRequest.save();
+
+    if (status === 'accepted') {
+      await Worker.findByIdAndUpdate(jobRequest.workerId, { $inc: { jobsDone: 1 } });
+    }
+
+    res.json({ message: `Job request ${status}`, status: jobRequest.status });
+  } catch (err) {
+    console.error('Respond job request error:', err.message);
+    res.status(500).json({ error: 'Server error', details: err.message });
+  }
 });
 
 // ========== RATE WORKER ==========
-app.post('/api/worker/:id/rate', (req, res) => {
-  const worker = mockWorkers.find(w => w.id === parseInt(req.params.id));
-  if (!worker) return res.status(404).json({ error: 'Worker not found' });
+app.post('/api/worker/:id/rate', async (req, res) => {
+  try {
+    if (!dbReady) return res.status(500).json({ error: 'Database not connected' });
 
-  const { rating, review, reviewerName } = req.body;
-  if (!rating || rating < 1 || rating > 5) {
-    return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+    const worker = await Worker.findById(req.params.id);
+    if (!worker) return res.status(404).json({ error: 'Worker not found' });
+
+    const { rating, review } = req.body;
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+    }
+
+    // Persist review
+    await Review.create({
+      workerId: worker._id,
+      rating,
+      comment: review || '',
+    });
+
+    // Update running average (Phase 1 keeps prototype semantics: jobsDone increments on rating)
+    const currentCount = worker.rating?.count ?? 0;
+    const currentAvg = worker.rating?.average ?? 0;
+    const newCount = currentCount + 1;
+    const newAvg = (currentAvg * currentCount + rating) / newCount;
+
+    worker.rating.average = parseFloat(newAvg.toFixed(1));
+    worker.rating.count = newCount;
+    worker.jobsDone += 1;
+
+    await worker.save();
+
+    console.log(`Rating submitted: ${worker.name} => ${rating}/5`);
+    res.json({
+      message: 'Rating submitted!',
+      newRating: worker.rating.average,
+      totalRatings: worker.rating.count,
+    });
+  } catch (err) {
+    console.error('Rate worker error:', err.message);
+    res.status(500).json({ error: 'Server error', details: err.message });
   }
-
-  // Update running average
-  const totalScore = worker.rating * worker.totalRatings + rating;
-  worker.totalRatings += 1;
-  worker.jobsDone += 1;
-  worker.rating = parseFloat((totalScore / worker.totalRatings).toFixed(1));
-
-  if (!reviews[worker.id]) reviews[worker.id] = [];
-  reviews[worker.id].unshift({
-    rating,
-    review: review || '',
-    reviewerName: reviewerName || 'Anonymous User',
-    date: new Date().toLocaleDateString('en-IN')
-  });
-
-  console.log(`${worker.name} rated ${rating}/5 by ${reviewerName || 'Anonymous'}`);
-  res.json({ message: 'Rating submitted!', newRating: worker.rating, totalRatings: worker.totalRatings });
 });
 
 // ========== GET ALL WORKERS (for dashboard) ==========
-app.get('/api/workers', (req, res) => {
-  const { phone } = req.query;
-  if (phone) {
-    const myWorkers = mockWorkers.filter(w => w.phone === phone);
-    return res.json(myWorkers);
+app.get('/api/workers', async (req, res) => {
+  try {
+    if (!dbReady) return res.status(500).json({ error: 'Database not connected' });
+
+    const { phone } = req.query;
+    const query = phone ? { phone } : {};
+    const workers = await Worker.find(query).lean();
+
+    // Frontend dashboard expects fields like { id, category, rating, totalRatings, jobsDone, available, memberSince }
+    const mapped = workers.map((w) => ({
+      ...toWorkerResponse(w),
+      category: w.skills && w.skills.length ? w.skills[0] : 'General',
+    }));
+
+    res.json(mapped);
+  } catch (err) {
+    console.error('Get all workers error:', err.message);
+    res.status(500).json({ error: 'Server error', details: err.message });
   }
-  res.json(mockWorkers);
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, '0.0.0.0', () => console.log(`Server running on 0.0.0.0:${PORT} — accessible from all devices on the network`));
+const PORT = process.env.PORT || 8080;
+async function startServer() {
+  try {
+    await mongoose.connect(process.env.MONGODB_URI);
+    dbReady = true;
+    console.log('MongoDB connected');
+  } catch (err) {
+    console.error('MongoDB connection failed:', err.message);
+  }
+
+  app.listen(PORT, '0.0.0.0', () =>
+    console.log(`Server running on 0.0.0.0:${PORT} — accessible from all devices on the network`)
+  );
+}
+
+startServer();

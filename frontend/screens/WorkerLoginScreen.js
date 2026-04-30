@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import API_BASE from '../config';
 
 const ALL_SKILLS = [
@@ -16,7 +17,30 @@ export default function WorkerLoginScreen({ navigation }) {
   const [aadhaar, setAadhaar] = useState('');
   const [selectedSkills, setSelectedSkills] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [workerLocation, setWorkerLocation] = useState({ latitude: 17.3850, longitude: 78.4867 });
+  const [locationStatus, setLocationStatus] = useState('📍 Fetching your location...');
   const insets = useSafeAreaInsets();
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setLocationStatus('📍 Location permission denied (using Hyderabad default)');
+          return;
+        }
+
+        const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        setWorkerLocation({
+          latitude: current.coords.latitude,
+          longitude: current.coords.longitude,
+        });
+        setLocationStatus('📍 Live location captured');
+      } catch (err) {
+        setLocationStatus('📍 Location unavailable (using Hyderabad default)');
+      }
+    })();
+  }, []);
 
   const toggleSkill = (skill) => {
     setSelectedSkills(prev =>
@@ -36,13 +60,22 @@ export default function WorkerLoginScreen({ navigation }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name, phone: `+91 ${phone}`, aadhaarLast4: aadhaar,
-          skills: selectedSkills
+          skills: selectedSkills,
+          lat: workerLocation.latitude,
+          lng: workerLocation.longitude,
         })
       });
       const data = await res.json();
       if (res.ok) {
         Alert.alert('🎉 Registration Successful!', `Welcome to LocalFix, ${name}! You are now discoverable by nearby users.`, [
-          { text: 'Go to Dashboard', onPress: () => navigation.replace('WorkerDashboard', { phone: `+91 ${phone}`, workerName: name }) }
+          {
+            text: 'Go to Dashboard',
+            onPress: () => navigation.replace('WorkerDashboard', {
+              phone: `+91 ${phone}`,
+              workerName: name,
+              workerId: data?.worker?.id || null,
+            })
+          }
         ]);
       } else { Alert.alert('Error', data.error); }
     } catch (err) {
@@ -75,6 +108,7 @@ export default function WorkerLoginScreen({ navigation }) {
 
       <Text style={styles.label}>Select Your Skills *</Text>
       <Text style={styles.subLabel}>Tap to select one or more skills</Text>
+      <Text style={styles.locationStatus}>{locationStatus}</Text>
       <View style={styles.skillsGrid}>
         {ALL_SKILLS.map(skill => (
           <TouchableOpacity key={skill}
@@ -102,6 +136,7 @@ const styles = StyleSheet.create({
   headerSub: { fontSize: 13, color: '#a0aec0', marginTop: 4 },
   label: { fontSize: 14, fontWeight: '600', color: '#4a5568', marginBottom: 6, marginLeft: 2, marginTop: 12 },
   subLabel: { fontSize: 12, color: '#a0aec0', marginBottom: 8, marginLeft: 2 },
+  locationStatus: { fontSize: 12, color: '#2b6cb0', marginBottom: 8, marginLeft: 2 },
   input: { backgroundColor: '#fff', borderRadius: 12, padding: 14, fontSize: 15, borderWidth: 1.5, borderColor: '#e2e8f0', color: '#2d3748' },
   phoneRow: { flexDirection: 'row', alignItems: 'stretch' },
   phonePrefix: { backgroundColor: '#edf2f7', borderTopLeftRadius: 12, borderBottomLeftRadius: 12, justifyContent: 'center', paddingHorizontal: 14, borderWidth: 1.5, borderColor: '#e2e8f0', borderRightWidth: 0 },

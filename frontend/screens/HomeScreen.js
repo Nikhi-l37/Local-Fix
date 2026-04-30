@@ -8,6 +8,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_BASE from '../config';
 
 const SUGGESTIONS = [
@@ -17,12 +18,14 @@ const SUGGESTIONS = [
 ];
 
 export default function HomeScreen({ navigation }) {
+  const USER_PHONE_KEY = 'localfix_user_phone';
   const [problem, setProblem] = useState('');
   const [loading, setLoading] = useState(false);
   const [workers, setWorkers] = useState([]);
   const [category, setCategory] = useState('');
   const [fallbackUsed, setFallbackUsed] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState(null);
+  const [userPhone, setUserPhone] = useState('');
 
   // Voice search states
   const recordingRef = useRef(null);
@@ -33,7 +36,7 @@ export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
   // Location states
-  const [userLocation, setUserLocation] = useState([78.4867, 17.3850]); // Default to Hyderabad
+  const [userLocation, setUserLocation] = useState({ latitude: 17.3850, longitude: 78.4867 }); // Default to Hyderabad
   const [locationName, setLocationName] = useState('📍 Fetching location...');
 
   React.useEffect(() => {
@@ -46,7 +49,10 @@ export default function HomeScreen({ navigation }) {
         }
 
         let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        setUserLocation([location.coords.longitude, location.coords.latitude]);
+        setUserLocation({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude
+        });
 
         let geo = await Location.reverseGeocodeAsync({
           latitude: location.coords.latitude,
@@ -63,6 +69,15 @@ export default function HomeScreen({ navigation }) {
         console.warn(err);
         setLocationName('📍 Location Error');
       }
+    })();
+  }, []);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const savedPhone = await AsyncStorage.getItem(USER_PHONE_KEY);
+        if (savedPhone) setUserPhone(savedPhone);
+      } catch (_) {}
     })();
   }, []);
 
@@ -202,6 +217,53 @@ export default function HomeScreen({ navigation }) {
     Linking.openURL(url).catch(() => Alert.alert('Error', 'WhatsApp is not installed'));
   };
 
+  const normalizeUserPhone = (rawPhone) => {
+    const digits = (rawPhone || '').replace(/\D/g, '');
+    if (digits.length === 10) return `+91 ${digits}`;
+    if (digits.length === 12 && digits.startsWith('91')) return `+91 ${digits.slice(2)}`;
+    return '';
+  };
+
+  const onChangeUserPhone = async (value) => {
+    const digitsOnly = value.replace(/\D/g, '').slice(0, 12);
+    setUserPhone(digitsOnly);
+    try {
+      await AsyncStorage.setItem(USER_PHONE_KEY, digitsOnly);
+    } catch (_) {}
+  };
+
+  const createJobRequest = async (worker) => {
+    try {
+      if (!worker?.id || !problem.trim() || !category) return;
+      const normalizedUserId = normalizeUserPhone(userPhone);
+      if (!normalizedUserId) return;
+      await fetch(`${API_BASE}/api/job-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workerId: worker.id,
+          problem,
+          category,
+          userId: normalizedUserId,
+          userLocation,
+        }),
+      });
+    } catch (_) {
+      // Silent by design: this should not block call UX.
+    }
+  };
+
+  const handleCallWorker = async (worker) => {
+    if (!normalizeUserPhone(userPhone)) {
+      Alert.alert('Phone number needed', 'Please enter your phone number so workers can identify your request.');
+      return;
+    }
+    createJobRequest(worker);
+    Linking.openURL(`tel:${worker.phone}`).catch(() => {
+      Alert.alert('Error', 'Phone dialer could not be opened');
+    });
+  };
+
   const renderWorker = ({ item }) => (
     <TouchableOpacity style={styles.card} onPress={() => setSelectedWorker(item)} activeOpacity={0.7}>
       <View style={styles.cardHeader}>
@@ -214,7 +276,7 @@ export default function HomeScreen({ navigation }) {
         {item.jobsDone > 0 && <Text style={styles.distanceText}>🔧 {item.jobsDone} jobs</Text>}
       </View>
       <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.callButton} onPress={() => Linking.openURL(`tel:${item.phone}`)}>
+        <TouchableOpacity style={styles.callButton} onPress={() => handleCallWorker(item)}>
           <Text style={styles.callButtonText}>📞 Call</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.whatsappButton} onPress={() => openWhatsApp(item.phone)}>
@@ -261,6 +323,16 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.micLabel}>{isRecording ? 'Release' : 'Hold'}</Text>
         </TouchableOpacity>
       </View>
+
+      <Text style={styles.searchLabel}>Your phone (for callback)</Text>
+      <TextInput
+        style={styles.userPhoneInput}
+        placeholder="Enter 10-digit phone number"
+        placeholderTextColor="#a0aec0"
+        keyboardType="phone-pad"
+        value={userPhone}
+        onChangeText={onChangeUserPhone}
+      />
 
       {/* Voice Loading */}
       {voiceLoading && (
@@ -331,7 +403,7 @@ export default function HomeScreen({ navigation }) {
                 </View>
 
                 <View style={styles.buttonRow}>
-                  <TouchableOpacity style={[styles.modalCallButton, { flex: 1 }]} onPress={() => Linking.openURL(`tel:${selectedWorker.phone}`)}>
+                  <TouchableOpacity style={[styles.modalCallButton, { flex: 1 }]} onPress={() => handleCallWorker(selectedWorker)}>
                     <Text style={styles.modalCallText}>📞 Call</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.modalWhatsappButton, { flex: 1 }]} onPress={() => openWhatsApp(selectedWorker.phone)}>
@@ -370,6 +442,7 @@ const styles = StyleSheet.create({
 
   searchRow: { flexDirection: 'row', alignItems: 'stretch', gap: 10, marginBottom: 4 },
   input: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 14, fontSize: 15, borderWidth: 1.5, borderColor: '#e2e8f0', minHeight: 60, textAlignVertical: 'top', color: '#2d3748' },
+  userPhoneInput: { backgroundColor: '#fff', borderRadius: 12, padding: 12, fontSize: 14, borderWidth: 1.5, borderColor: '#e2e8f0', color: '#2d3748', marginBottom: 8 },
   micButton: { width: 64, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1.5, borderColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center' },
   micButtonActive: { backgroundColor: '#fed7d7', borderColor: '#fc8181' },
   micIcon: { fontSize: 28 },
