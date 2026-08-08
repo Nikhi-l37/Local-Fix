@@ -3,7 +3,9 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
 const { GoogleGenAI } = require('@google/genai');
+const Worker = require('./models/Worker');
 
 const app = express();
 app.use(cors());
@@ -11,6 +13,14 @@ app.use(express.json({ limit: '10mb' })); // increased limit for audio data
 
 // Initialize Gemini API
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+// ========== MONGODB CONNECTION ==========
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log('✅ Connected to MongoDB Atlas'))
+.catch(err => console.error('❌ MongoDB connection failed:', err.message));
 
 // In-Memory Database for Hackathon Prototype
 const centerLng = 78.4867;
@@ -407,37 +417,40 @@ CLASSIFICATION RULES:
 });
 
 // ========== WORKER REGISTRATION ==========
-app.post('/api/worker/register', (req, res) => {
+app.post('/api/worker/register', async (req, res) => {
   try {
-    const { name, phone, aadhaarLast4, skills, lat, lng } = req.body;
+    const { name, phone, skills, lat, lng } = req.body;
     if (!name || !phone || !skills || skills.length === 0) {
       return res.status(400).json({ error: 'Name, phone, and at least one skill are required' });
     }
 
-    const newWorkers = skills.map(skill => {
-      const worker = {
-        id: nextId++,
+    // Create a worker entry for each skill
+    const newWorkers = [];
+    
+    for (const skill of skills) {
+      const worker = new Worker({
         name,
         category: skill,
         phone,
-        aadhaarLast4: aadhaarLast4 || '****',
-        rating: 0,
-        totalRatings: 0,
-        jobsDone: 0,
-        memberSince: new Date().toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }),
-        available: true,
-        lat: lat || centerLat + (Math.random() - 0.5) * 0.02,
-        lng: lng || centerLng + (Math.random() - 0.5) * 0.02,
-      };
-      mockWorkers.push(worker);
-      return worker;
-    });
+        rating: 4.5,
+        location: {
+          type: 'Point',
+          coordinates: [
+            lng || 78.4867 + (Math.random() - 0.5) * 0.02,  // longitude
+            lat || 17.3850 + (Math.random() - 0.5) * 0.02   // latitude
+          ]
+        }
+      });
 
-    console.log(`New worker registered: ${name} with skills: ${skills.join(', ')}`);
+      const savedWorker = await worker.save();
+      newWorkers.push(savedWorker);
+      console.log(`✅ New worker registered: ${name} as ${skill}`);
+    }
+
     res.json({ message: 'Registration successful!', workers: newWorkers });
 
   } catch (err) {
-    console.error(err);
+    console.error('❌ Registration error:', err.message);
     res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
