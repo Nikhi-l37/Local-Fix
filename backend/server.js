@@ -15,10 +15,7 @@ app.use(express.json({ limit: '10mb' })); // increased limit for audio data
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // ========== MONGODB CONNECTION ==========
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
+mongoose.connect(process.env.MONGODB_URI)
 .then(() => console.log('✅ Connected to MongoDB Atlas'))
 .catch(err => console.error('❌ MongoDB connection failed:', err.message));
 
