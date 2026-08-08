@@ -3,12 +3,14 @@ import {
   StyleSheet, Text, View, TextInput, TouchableOpacity,
   FlatList, ActivityIndicator, Alert, Linking, Modal, ScrollView, Animated
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Location from 'expo-location';
 import API_BASE from '../config';
+import { colors, shadows, spacing, borderRadius, typography } from '../theme';
 
 const SUGGESTIONS = [
   'fan not working', 'pipe leaking', 'need a JCB',
@@ -227,9 +229,9 @@ export default function HomeScreen({ navigation }) {
   return (
     <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
       {/* Header */}
-      <View style={styles.headerCard}>
+      <LinearGradient colors={[colors.primary, colors.primaryDark]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.headerCard}>
         <View style={styles.headerTop}>
-          <MaterialIcons name="handyman" size={36} color="#fff" style={styles.headerIcon} />
+          <MaterialIcons name="handyman" size={36} color={colors.textInverse} style={styles.headerIcon} />
           <View>
             <Text style={styles.header}>LocalFix</Text>
             <Text style={styles.tagline}>AI-powered local worker discovery</Text>
@@ -239,7 +241,7 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.locationTag}>{locationName}</Text>
           <View style={styles.liveDot} /><Text style={styles.liveText}>Live</Text>
         </View>
-      </View>
+      </LinearGradient>
 
       {/* Search Input + Mic Button */}
       <Text style={styles.searchLabel}>Describe your problem</Text>
@@ -356,73 +358,73 @@ export default function HomeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f4f8', paddingHorizontal: 18 },
-  headerCard: { backgroundColor: '#1a56a0', borderRadius: 16, padding: 18, marginBottom: 14 },
+  container: { flex: 1, backgroundColor: colors.background, paddingHorizontal: spacing.xl },
+  headerCard: { borderRadius: borderRadius.xl, padding: spacing.lg, marginBottom: spacing.lg, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 8 },
   headerTop: { flexDirection: 'row', alignItems: 'center' },
-  headerIcon: { marginRight: 12 },
-  header: { fontSize: 26, fontWeight: 'bold', color: '#fff' },
-  tagline: { fontSize: 12, color: '#b3d4fc', marginTop: 2 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
-  locationTag: { fontSize: 13, color: '#d4e6fc', fontWeight: '500' },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#48bb78', marginLeft: 12, marginRight: 4 },
-  liveText: { fontSize: 12, color: '#48bb78', fontWeight: '700' },
-  searchLabel: { fontSize: 14, fontWeight: '600', color: '#4a5568', marginBottom: 6, marginLeft: 2 },
+  headerIcon: { marginRight: spacing.md, tintColor: colors.textInverse },
+  header: { fontSize: 28, fontWeight: 'bold', color: colors.textInverse },
+  tagline: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: spacing.xs },
+  locationRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.md },
+  locationTag: { fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: '500' },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success, marginLeft: spacing.md, marginRight: spacing.xs },
+  liveText: { fontSize: 12, color: colors.success, fontWeight: '700' },
+  searchLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: spacing.sm, marginLeft: spacing.xs },
 
-  searchRow: { flexDirection: 'row', alignItems: 'stretch', gap: 10, marginBottom: 4 },
-  input: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 14, fontSize: 15, borderWidth: 1.5, borderColor: '#e2e8f0', minHeight: 60, textAlignVertical: 'top', color: '#2d3748' },
-  micButton: { width: 64, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1.5, borderColor: '#e2e8f0', alignItems: 'center', justifyContent: 'center' },
-  micButtonActive: { backgroundColor: '#fed7d7', borderColor: '#fc8181' },
+  searchRow: { flexDirection: 'row', alignItems: 'stretch', gap: spacing.lg, marginBottom: spacing.md },
+  input: { flex: 1, backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.md, fontSize: 15, borderWidth: 1.5, borderColor: colors.border, minHeight: 60, textAlignVertical: 'top', color: colors.textPrimary, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
+  micButton: { width: 70, backgroundColor: colors.surface, borderRadius: borderRadius.lg, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
+  micButtonActive: { backgroundColor: colors.redBg, borderColor: colors.error },
   micIcon: { fontSize: 28 },
-  micLabel: { fontSize: 10, color: '#718096', fontWeight: '600', marginTop: 2 },
+  micLabel: { fontSize: 10, color: colors.textSecondary, fontWeight: '600', marginTop: spacing.xs },
 
-  voiceLoadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, gap: 8 },
-  voiceLoadingText: { fontSize: 13, color: '#3182ce', fontWeight: '500' },
+  voiceLoadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.md, gap: spacing.md },
+  voiceLoadingText: { fontSize: 13, color: colors.primary, fontWeight: '500' },
 
-  chipsRow: { marginTop: 6, marginBottom: 10, maxHeight: 36 },
-  chipsContent: { paddingRight: 10, gap: 8, flexDirection: 'row' },
-  chip: { backgroundColor: '#e8f0fe', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: '#b3d4fc' },
-  chipText: { fontSize: 12, color: '#1a56a0', fontWeight: '500' },
-  searchButton: { backgroundColor: '#3182ce', borderRadius: 12, padding: 14, alignItems: 'center', marginBottom: 12 },
-  searchButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  chipsRow: { marginTop: spacing.md, marginBottom: spacing.lg, maxHeight: 42 },
+  chipsContent: { paddingRight: spacing.xl, gap: spacing.md, flexDirection: 'row' },
+  chip: { backgroundColor: colors.blueBg, borderRadius: borderRadius.full, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, borderWidth: 1.5, borderColor: colors.accent },
+  chipText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+  searchButton: { backgroundColor: colors.primary, borderRadius: borderRadius.lg, padding: spacing.lg, alignItems: 'center', marginBottom: spacing.lg, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 5 },
+  searchButtonText: { color: colors.textInverse, fontSize: 16, fontWeight: 'bold' },
   loadingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  resultHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingHorizontal: 2 },
-  categoryFound: { fontSize: 14, color: '#4a5568' },
-  highlight: { fontWeight: 'bold', color: '#2b6cb0' },
-  resultCount: { fontSize: 12, color: '#a0aec0' },
+  resultHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md, paddingHorizontal: spacing.xs },
+  categoryFound: { fontSize: 15, color: colors.textPrimary, fontWeight: '600' },
+  highlight: { fontWeight: 'bold', color: colors.primary },
+  resultCount: { fontSize: 13, color: colors.textSecondary },
   listContainer: { paddingBottom: 30 },
-  card: { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#e2e8f0' },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  workerName: { fontSize: 16, fontWeight: 'bold', color: '#2d3748', flex: 1 },
-  ratingBadge: { backgroundColor: '#fefcbf', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  ratingText: { fontSize: 13, fontWeight: 'bold', color: '#b7791f' },
-  infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
-  categoryBadge: { backgroundColor: '#ebf8ff', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 8 },
-  categoryBadgeText: { color: '#3182ce', fontSize: 12, fontWeight: '600' },
-  distanceText: { fontSize: 12, color: '#718096', fontWeight: '500' },
-  buttonRow: { flexDirection: 'row', gap: 10 },
-  callButton: { backgroundColor: '#38a169', borderRadius: 10, padding: 11, alignItems: 'center', flex: 1 },
-  whatsappButton: { backgroundColor: '#25d366', borderRadius: 10, padding: 11, alignItems: 'center', flex: 1 },
-  callButtonText: { color: '#fff', fontSize: 14, fontWeight: 'bold' },
+  card: { backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.md, marginBottom: spacing.md, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm },
+  workerName: { fontSize: 16, fontWeight: 'bold', color: colors.textPrimary, flex: 1 },
+  ratingBadge: { backgroundColor: colors.yellowBg, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: borderRadius.md },
+  ratingText: { fontSize: 13, fontWeight: 'bold', color: colors.warning },
+  infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, gap: spacing.md },
+  categoryBadge: { backgroundColor: colors.blueBg, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: borderRadius.md },
+  categoryBadgeText: { color: colors.primary, fontSize: 13, fontWeight: '600' },
+  distanceText: { fontSize: 12, color: colors.textSecondary, fontWeight: '500' },
+  buttonRow: { flexDirection: 'row', gap: spacing.lg },
+  callButton: { backgroundColor: colors.success, borderRadius: borderRadius.md, padding: spacing.md, alignItems: 'center', flex: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2 },
+  whatsappButton: { backgroundColor: colors.success, borderRadius: borderRadius.md, padding: spacing.md, alignItems: 'center', flex: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2 },
+  callButtonText: { color: colors.textInverse, fontSize: 14, fontWeight: 'bold' },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalSheet: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 30 },
-  modalHandle: { width: 40, height: 4, backgroundColor: '#d1d5db', borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  avatarCircle: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#3182ce', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
-  modalName: { fontSize: 18, fontWeight: 'bold', color: '#1a202c' },
-  verifiedBadge: { fontSize: 13, color: '#38a169', fontWeight: '600', marginTop: 3 },
-  detailsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  detailCard: { backgroundColor: '#f7fafc', borderRadius: 10, padding: 10, width: '48%', borderWidth: 1, borderColor: '#edf2f7' },
-  detailLabel: { fontSize: 10, color: '#a0aec0', fontWeight: '600', textTransform: 'uppercase', marginBottom: 3 },
-  detailValue: { fontSize: 14, fontWeight: 'bold', color: '#2d3748' },
-  modalCallButton: { backgroundColor: '#38a169', borderRadius: 12, padding: 14, alignItems: 'center' },
-  modalWhatsappButton: { backgroundColor: '#25d366', borderRadius: 12, padding: 14, alignItems: 'center' },
-  modalCallText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
-  rateButton: { backgroundColor: '#ecc94b', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 10 },
-  rateButtonText: { color: '#744210', fontSize: 15, fontWeight: 'bold' },
-  modalCloseButton: { borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1.5, borderColor: '#e2e8f0', marginTop: 8 },
-  modalCloseText: { color: '#718096', fontSize: 14, fontWeight: '600' },
-  fallbackBanner: { backgroundColor: '#fefcbf', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 8, borderWidth: 1, borderColor: '#ecc94b' },
-  fallbackText: { fontSize: 12, color: '#744210', fontWeight: '500', textAlign: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalSheet: { backgroundColor: colors.surface, borderTopLeftRadius: borderRadius.xl, borderTopRightRadius: borderRadius.xl, padding: spacing.lg, paddingBottom: spacing.xl, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 10 },
+  modalHandle: { width: 40, height: 4, backgroundColor: colors.border, borderRadius: borderRadius.sm, alignSelf: 'center', marginBottom: spacing.lg },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg, paddingBottom: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  avatarCircle: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 3 },
+  avatarText: { fontSize: 22, fontWeight: 'bold', color: colors.textInverse },
+  modalName: { fontSize: 18, fontWeight: 'bold', color: colors.textPrimary },
+  verifiedBadge: { fontSize: 13, color: colors.success, fontWeight: '600', marginTop: spacing.xs },
+  detailsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginBottom: spacing.lg },
+  detailCard: { backgroundColor: colors.background, borderRadius: borderRadius.md, padding: spacing.md, width: '48%', borderWidth: 1, borderColor: colors.border },
+  detailLabel: { fontSize: 11, color: colors.textSecondary, fontWeight: '700', textTransform: 'uppercase', marginBottom: spacing.xs },
+  detailValue: { fontSize: 15, fontWeight: 'bold', color: colors.textPrimary },
+  modalCallButton: { backgroundColor: colors.success, borderRadius: borderRadius.lg, padding: spacing.lg, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 2 },
+  modalWhatsappButton: { backgroundColor: colors.accent, borderRadius: borderRadius.lg, padding: spacing.lg, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 2 },
+  modalCallText: { color: colors.textInverse, fontSize: 15, fontWeight: 'bold' },
+  rateButton: { backgroundColor: colors.warning, borderRadius: borderRadius.lg, padding: spacing.lg, alignItems: 'center', marginTop: spacing.lg, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 2 },
+  rateButtonText: { color: colors.textInverse, fontSize: 15, fontWeight: 'bold' },
+  modalCloseButton: { borderRadius: borderRadius.lg, padding: spacing.md, alignItems: 'center', borderWidth: 2, borderColor: colors.border, marginTop: spacing.lg },
+  modalCloseText: { color: colors.textSecondary, fontSize: 14, fontWeight: '600' },
+  fallbackBanner: { backgroundColor: colors.yellowBg, borderRadius: borderRadius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.warning },
+  fallbackText: { fontSize: 12, color: colors.warning, fontWeight: '600', textAlign: 'center' },
 });

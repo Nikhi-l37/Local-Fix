@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, TextInput, Alert, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import API_BASE from '../config';
+import { colors, spacing, borderRadius } from '../theme';
 
 export default function RateWorkerScreen({ route, navigation }) {
   const { worker } = route.params;
@@ -83,24 +84,24 @@ export default function RateWorkerScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f4f8', paddingHorizontal: 20 },
-  workerCard: { backgroundColor: '#fff', borderRadius: 16, padding: 24, alignItems: 'center', marginBottom: 24, borderWidth: 1, borderColor: '#e2e8f0' },
-  avatarCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#3182ce', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  avatarText: { fontSize: 26, fontWeight: 'bold', color: '#fff' },
-  workerName: { fontSize: 20, fontWeight: 'bold', color: '#2d3748' },
-  workerCategory: { fontSize: 14, color: '#718096', marginTop: 4 },
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#4a5568', marginBottom: 12 },
-  starsRow: { flexDirection: 'row', justifyContent: 'center', gap: 12, marginBottom: 8 },
-  star: { fontSize: 44, color: '#e2e8f0' },
-  starActive: { color: '#ecc94b' },
-  ratingLabel: { textAlign: 'center', fontSize: 16, color: '#718096', marginBottom: 24, fontWeight: '500' },
-  reviewInput: { backgroundColor: '#fff', borderRadius: 12, padding: 14, fontSize: 15, borderWidth: 1.5, borderColor: '#e2e8f0', minHeight: 100, textAlignVertical: 'top', color: '#2d3748', marginBottom: 20 },
-  submitButton: { backgroundColor: '#ecc94b', borderRadius: 12, padding: 16, alignItems: 'center' },
-  submitButtonText: { color: '#744210', fontSize: 17, fontWeight: 'bold' },
-  successCard: { backgroundColor: '#fff', borderRadius: 16, padding: 32, alignItems: 'center', marginTop: 40, borderWidth: 1, borderColor: '#e2e8f0' },
-  successIcon: { fontSize: 48, marginBottom: 16 },
-  successTitle: { fontSize: 24, fontWeight: 'bold', color: '#2d3748', marginBottom: 8 },
-  successText: { fontSize: 15, color: '#718096', textAlign: 'center', marginBottom: 24 },
-  backButton: { backgroundColor: '#3182ce', borderRadius: 12, padding: 14, paddingHorizontal: 24 },
-  backButtonText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: colors.background, paddingHorizontal: spacing.xl },
+  workerCard: { backgroundColor: colors.surface, borderRadius: borderRadius.xl, padding: spacing.xl, alignItems: 'center', marginBottom: spacing.xl, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 },
+  avatarCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md },
+  avatarText: { fontSize: 26, fontWeight: 'bold', color: colors.textInverse },
+  workerName: { fontSize: 20, fontWeight: 'bold', color: colors.textPrimary },
+  workerCategory: { fontSize: 14, color: colors.textSecondary, marginTop: spacing.xs },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.md, marginTop: spacing.lg, textTransform: 'uppercase', letterSpacing: 0.5 },
+  starsRow: { flexDirection: 'row', justifyContent: 'center', gap: spacing.lg, marginBottom: spacing.md },
+  star: { fontSize: 48, color: colors.border },
+  starActive: { color: colors.warning },
+  ratingLabel: { textAlign: 'center', fontSize: 16, color: colors.textPrimary, marginBottom: spacing.xl, fontWeight: '600' },
+  reviewInput: { backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.md, fontSize: 15, borderWidth: 1.5, borderColor: colors.border, minHeight: 100, textAlignVertical: 'top', color: colors.textPrimary, marginBottom: spacing.xl, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 },
+  submitButton: { backgroundColor: colors.warning, borderRadius: borderRadius.lg, padding: spacing.lg, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 5 },
+  submitButtonText: { color: colors.textInverse, fontSize: 17, fontWeight: 'bold' },
+  successCard: { backgroundColor: colors.surface, borderRadius: borderRadius.xl, padding: spacing.xxxl, alignItems: 'center', marginTop: spacing.xxxl, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 },
+  successIcon: { fontSize: 56, marginBottom: spacing.lg },
+  successTitle: { fontSize: 24, fontWeight: 'bold', color: colors.textPrimary, marginBottom: spacing.sm },
+  successText: { fontSize: 15, color: colors.textSecondary, textAlign: 'center', marginBottom: spacing.lg },
+  backButton: { backgroundColor: colors.primary, borderRadius: borderRadius.lg, padding: spacing.md, paddingHorizontal: spacing.lg, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 2 },
+  backButtonText: { color: colors.textInverse, fontSize: 15, fontWeight: 'bold' },
 });

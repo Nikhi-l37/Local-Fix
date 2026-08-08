@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import API_BASE from '../config';
+import { colors, shadows, spacing, borderRadius, typography } from '../theme';
 
 const ALL_SKILLS = [
   'Plumber', 'Electrician', 'Carpenter', 'AC Mechanic', 'Painter',
@@ -52,11 +54,13 @@ export default function WorkerLoginScreen({ navigation }) {
 
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top + 10 }]} showsVerticalScrollIndicator={false}>
-      <View style={styles.headerCard}>
-        <MaterialIcons name="engineering" size={48} color="#fff" style={styles.headerIcon} />
-        <Text style={styles.headerTitle}>Worker Registration</Text>
-        <Text style={styles.headerSub}>Join LocalFix — Free forever, no commission</Text>
-      </View>
+      <LinearGradient colors={[colors.primaryDark, colors.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.headerCard}>
+        <View style={styles.headerCardContent}>
+          <MaterialIcons name="engineering" size={48} color={colors.textInverse} style={styles.headerIcon} />
+          <Text style={styles.headerTitle}>Worker Registration</Text>
+          <Text style={styles.headerSub}>Join LocalFix — Free forever, no commission</Text>
+        </View>
+      </LinearGradient>
 
       <Text style={styles.label}>Full Name *</Text>
       <TextInput style={styles.input} placeholder="Enter your full name" placeholderTextColor="#a0aec0" value={name} onChangeText={setName} />
@@ -95,23 +99,24 @@ export default function WorkerLoginScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f4f8', paddingHorizontal: 20 },
-  headerCard: { backgroundColor: '#2d3748', borderRadius: 16, padding: 22, alignItems: 'center', marginBottom: 20 },
-  headerIcon: { marginBottom: 8 },
-  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
-  headerSub: { fontSize: 13, color: '#a0aec0', marginTop: 4 },
-  label: { fontSize: 14, fontWeight: '600', color: '#4a5568', marginBottom: 6, marginLeft: 2, marginTop: 12 },
-  subLabel: { fontSize: 12, color: '#a0aec0', marginBottom: 8, marginLeft: 2 },
-  input: { backgroundColor: '#fff', borderRadius: 12, padding: 14, fontSize: 15, borderWidth: 1.5, borderColor: '#e2e8f0', color: '#2d3748' },
-  phoneRow: { flexDirection: 'row', alignItems: 'stretch' },
-  phonePrefix: { backgroundColor: '#edf2f7', borderTopLeftRadius: 12, borderBottomLeftRadius: 12, justifyContent: 'center', paddingHorizontal: 14, borderWidth: 1.5, borderColor: '#e2e8f0', borderRightWidth: 0 },
-  phonePrefixText: { fontSize: 15, fontWeight: '600', color: '#4a5568' },
-  skillsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 },
-  skillChip: { backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9, borderWidth: 1.5, borderColor: '#e2e8f0' },
-  skillChipActive: { backgroundColor: '#3182ce', borderColor: '#3182ce' },
-  skillText: { fontSize: 13, color: '#4a5568', fontWeight: '500' },
-  skillTextActive: { color: '#fff' },
-  registerButton: { backgroundColor: '#38a169', borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 12 },
-  registerButtonText: { color: '#fff', fontSize: 17, fontWeight: 'bold' },
-  footerText: { textAlign: 'center', fontSize: 12, color: '#a0aec0', marginBottom: 40 },
+  container: { flex: 1, backgroundColor: colors.background, paddingHorizontal: spacing.xl },
+  headerCard: { borderRadius: borderRadius.xl, overflow: 'hidden', marginBottom: spacing.xl, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 8 },
+  headerCardContent: { alignItems: 'center', padding: spacing.xl },
+  headerIcon: { marginBottom: spacing.md, tintColor: colors.textInverse },
+  headerTitle: { fontSize: 26, fontWeight: 'bold', color: colors.textInverse, textAlign: 'center' },
+  headerSub: { fontSize: 13, color: 'rgba(255,255,255,0.85)', marginTop: spacing.sm, textAlign: 'center' },
+  label: { fontSize: 14, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.sm, marginLeft: spacing.xs, textTransform: 'uppercase' },
+  subLabel: { fontSize: 12, color: colors.textSecondary, marginBottom: spacing.md, marginLeft: spacing.xs },
+  input: { backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.md, fontSize: 15, borderWidth: 1.5, borderColor: colors.border, color: colors.textPrimary, marginBottom: spacing.md, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 },
+  phoneRow: { flexDirection: 'row', alignItems: 'stretch', marginBottom: spacing.md },
+  phonePrefix: { backgroundColor: colors.background, borderTopLeftRadius: borderRadius.lg, borderBottomLeftRadius: borderRadius.lg, justifyContent: 'center', paddingHorizontal: spacing.md, borderWidth: 1.5, borderColor: colors.border, borderRightWidth: 0 },
+  phonePrefixText: { fontSize: 15, fontWeight: '600', color: colors.textPrimary },
+  skillsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginBottom: spacing.xl },
+  skillChip: { backgroundColor: colors.surface, borderRadius: borderRadius.full, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderWidth: 2, borderColor: colors.border },
+  skillChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  skillText: { fontSize: 13, color: colors.textPrimary, fontWeight: '600' },
+  skillTextActive: { color: colors.textInverse },
+  registerButton: { backgroundColor: colors.success, borderRadius: borderRadius.lg, padding: spacing.lg, alignItems: 'center', marginBottom: spacing.md, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 5 },
+  registerButtonText: { color: colors.textInverse, fontSize: 17, fontWeight: 'bold' },
+  footerText: { textAlign: 'center', fontSize: 12, color: colors.textSecondary, marginBottom: spacing.xxxl },
 });

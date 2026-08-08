@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, TouchableOpacity, FlatList, Alert, ActivityIndi
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import API_BASE from '../config';
+import { colors, spacing, borderRadius } from '../theme';
 
 export default function WorkerDashboardScreen({ route }) {
   const { phone, workerName } = route.params;
@@ -126,38 +127,38 @@ export default function WorkerDashboardScreen({ route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f4f8', paddingHorizontal: 18 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f4f8' },
-  loadingText: { marginTop: 12, fontSize: 15, color: '#718096' },
+  container: { flex: 1, backgroundColor: colors.background, paddingHorizontal: spacing.lg },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+  loadingText: { marginTop: spacing.md, fontSize: 15, color: colors.textSecondary },
 
-  profileCard: { backgroundColor: '#2d3748', borderRadius: 16, padding: 20, flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  avatarCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#3182ce', alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
-  profileName: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
-  profilePhone: { fontSize: 13, color: '#a0aec0', marginTop: 2 },
-  verifiedBadge: { fontSize: 12, color: '#48bb78', fontWeight: '600', marginTop: 4 },
+  profileCard: { backgroundColor: colors.surface, borderRadius: borderRadius.xl, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg, marginTop: spacing.lg, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 },
+  avatarCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 24, fontWeight: 'bold', color: colors.textInverse },
+  profileName: { fontSize: 20, fontWeight: 'bold', color: colors.textPrimary },
+  profilePhone: { fontSize: 13, color: colors.textSecondary, marginTop: spacing.xs },
+  verifiedBadge: { fontSize: 12, color: colors.success, fontWeight: '700', marginTop: spacing.xs },
 
-  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
-  statValue: { fontSize: 18, fontWeight: 'bold', color: '#2d3748' },
-  statLabel: { fontSize: 11, color: '#a0aec0', marginTop: 4, fontWeight: '500' },
+  statsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg },
+  statCard: { flex: 1, backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.md, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 },
+  statValue: { fontSize: 20, fontWeight: 'bold', color: colors.primary },
+  statLabel: { fontSize: 11, color: colors.textSecondary, marginTop: spacing.xs, fontWeight: '600', textTransform: 'uppercase' },
 
-  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#4a5568', marginBottom: 10 },
-  skillCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#e2e8f0' },
-  skillName: { fontSize: 16, fontWeight: 'bold', color: '#2d3748' },
-  skillMeta: { fontSize: 12, color: '#718096', marginTop: 3 },
-  availToggle: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
-  toggleAvailable: { backgroundColor: '#c6f6d5' },
-  toggleOffline: { backgroundColor: '#fed7d7' },
-  toggleText: { fontSize: 13, fontWeight: '600' },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginBottom: spacing.md, textTransform: 'uppercase', letterSpacing: 0.5 },
+  skillCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.md, marginBottom: spacing.md, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 },
+  skillName: { fontSize: 16, fontWeight: 'bold', color: colors.textPrimary },
+  skillMeta: { fontSize: 12, color: colors.textSecondary, marginTop: spacing.xs, fontWeight: '500' },
+  availToggle: { borderRadius: borderRadius.full, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2 },
+  toggleAvailable: { backgroundColor: colors.greenBg },
+  toggleOffline: { backgroundColor: colors.redBg },
+  toggleText: { fontSize: 13, fontWeight: '700', color: colors.textPrimary },
 
-  requestsCard: { backgroundColor: '#fff', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#e2e8f0', marginTop: 8, marginBottom: 20 },
-  requestsTitle: { fontSize: 15, fontWeight: 'bold', color: '#2d3748', marginBottom: 12 },
-  requestItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#f0f4f8' },
-  requestText: { fontSize: 14, color: '#4a5568' },
-  requestDistance: { fontSize: 12, color: '#a0aec0', marginTop: 3 },
-  requestActions: { flexDirection: 'row', gap: 8 },
-  acceptBtn: { backgroundColor: '#c6f6d5', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  declineBtn: { backgroundColor: '#fed7d7', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  actionText: { fontSize: 18, fontWeight: 'bold' },
+  requestsCard: { backgroundColor: colors.surface, borderRadius: borderRadius.lg, padding: spacing.lg, marginBottom: spacing.lg, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 3 },
+  requestsTitle: { fontSize: 15, fontWeight: 'bold', color: colors.textPrimary, marginBottom: spacing.md, textTransform: 'uppercase', letterSpacing: 0.3 },
+  requestItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md, borderTopWidth: 1, borderTopColor: colors.divider },
+  requestText: { fontSize: 14, color: colors.textPrimary },
+  requestDistance: { fontSize: 12, color: colors.textSecondary, marginTop: spacing.xs, fontWeight: '500' },
+  requestActions: { flexDirection: 'row', gap: spacing.md },
+  acceptBtn: { backgroundColor: colors.greenBg, width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2 },
+  declineBtn: { backgroundColor: colors.redBg, width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2 },
+  actionText: { fontSize: 18, fontWeight: 'bold', color: colors.textPrimary },
 });

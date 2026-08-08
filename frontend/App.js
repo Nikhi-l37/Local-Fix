@@ -9,6 +9,7 @@ import HomeScreen from './screens/HomeScreen';
 import RateWorkerScreen from './screens/RateWorkerScreen';
 import WorkerLoginScreen from './screens/WorkerLoginScreen';
 import WorkerDashboardScreen from './screens/WorkerDashboardScreen';
+import { colors } from './theme';
 
 const Tab = createBottomTabNavigator();
 const UserStack = createNativeStackNavigator();
@@ -21,7 +22,7 @@ function UserStackScreen() {
       <UserStack.Screen
         name="RateWorker"
         component={RateWorkerScreen}
-        options={{ headerShown: true, title: '⭐ Rate Worker', headerStyle: { backgroundColor: '#f0f4f8' }, headerTintColor: '#2d3748' }}
+        options={{ headerShown: true, title: '⭐ Rate Worker', headerStyle: { backgroundColor: colors.primary }, headerTintColor: colors.textInverse, headerTitleStyle: { fontWeight: '700' } }}
       />
     </UserStack.Navigator>
   );
@@ -39,22 +40,27 @@ function WorkerStackScreen() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle="light-content" backgroundColor="#1a56a0" />
+      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
       <NavigationContainer>
         <Tab.Navigator
           screenOptions={{
             headerShown: false,
             tabBarStyle: {
-              backgroundColor: '#fff',
+              backgroundColor: colors.surface,
               borderTopWidth: 1,
-              borderTopColor: '#e2e8f0',
-              paddingBottom: 6,
-              paddingTop: 6,
-              height: 60,
+              borderTopColor: colors.border,
+              paddingBottom: 8,
+              paddingTop: 8,
+              height: 62,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: -4 },
+              shadowOpacity: 0.1,
+              shadowRadius: 12,
+              elevation: 5,
             },
-            tabBarActiveTintColor: '#3182ce',
-            tabBarInactiveTintColor: '#a0aec0',
-            tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
+            tabBarActiveTintColor: colors.primary,
+            tabBarInactiveTintColor: colors.textSecondary,
+            tabBarLabelStyle: { fontSize: 12, fontWeight: '700' },
           }}
         >
           <Tab.Screen
